@@ -11,6 +11,7 @@
         :root {
             --neon-blue: #00f3ff;
             --neon-purple: #bc13fe;
+            --neon-green: #0aff5d;
             --glass-bg: rgba(10, 10, 20, 0.6);
             --glass-border: rgba(0, 243, 255, 0.2);
         }
@@ -48,11 +49,11 @@
             justify-content: center;
             align-items: center;
             padding: 2rem;
-            pointer-events: none; /* Let clicks pass through to 3D where empty */
+            pointer-events: none;
         }
 
         .glass-panel {
-            pointer-events: auto; /* Re-enable clicks for the panel */
+            pointer-events: auto;
             background: var(--glass-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -63,13 +64,18 @@
             width: 100%;
             text-align: center;
             box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: opacity 0.5s ease, transform 0.5s ease, box-shadow 0.3s ease;
         }
 
         .glass-panel:hover {
-            transform: translateY(-5px);
             box-shadow: 0 0 60px rgba(188, 19, 254, 0.2);
             border-color: rgba(188, 19, 254, 0.4);
+        }
+
+        .glass-panel.fade-out {
+            opacity: 0;
+            transform: scale(0.9);
+            pointer-events: none;
         }
 
         h1 {
@@ -96,6 +102,7 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            transition: opacity 0.3s ease;
         }
 
         input {
@@ -127,8 +134,6 @@
             letter-spacing: 2px;
             cursor: pointer;
             transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
         }
 
         button:hover {
@@ -141,9 +146,40 @@
             margin-top: 1rem;
             font-weight: 500;
             letter-spacing: 1px;
+            height: 20px;
         }
 
-        /* Responsive adjustments */
+        /* Success State UI */
+        #success-interface {
+            display: none;
+            animation: fadeIn 1s ease forwards;
+        }
+
+        #success-interface h2 {
+            color: var(--neon-green);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            letter-spacing: 3px;
+        }
+
+        #btn-proceed {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            margin-top: 1rem;
+        }
+
+        #btn-proceed:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
             .glass-panel { padding: 2rem; }
         }
@@ -154,15 +190,25 @@
     <div id="webgl-container"></div>
 
     <div class="ui-layer">
-        <div class="glass-panel">
-            <h1>Nexus Hub</h1>
-            <p>Interact with the background. Initiate neural link below.</p>
+        <div class="glass-panel" id="main-panel">
             
-            <form id="transmission-form">
-                <input type="email" id="email" placeholder="ENTER COMM-LINK (EMAIL)" required>
-                <button type="submit">Initialize Sequence</button>
-                <div id="status-message"></div>
-            </form>
+            <div id="initial-interface">
+                <h1>Nexus Hub</h1>
+                <p>Interact with the background. Initiate neural link below.</p>
+                
+                <form id="transmission-form">
+                    <input type="email" id="email" placeholder="ENTER COMM-LINK (EMAIL)" required>
+                    <button type="submit" id="submit-btn">Initialize Sequence</button>
+                    <div id="status-message"></div>
+                </form>
+            </div>
+
+            <div id="success-interface">
+                <h2>ACCESS GRANTED</h2>
+                <p>Neural link verified. The gateway is open.</p>
+                <button id="btn-proceed">Enter System</button>
+            </div>
+
         </div>
     </div>
 
@@ -170,23 +216,21 @@
     
     <script>
         /* =========================================
-           1. 3D SCENE SETUP (THREE.JS)
+           1. 3D SCENE SETUP
            ========================================= */
         const container = document.getElementById('webgl-container');
-        
-        // Scene, Camera, Renderer
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x050505, 0.002);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 30;
+        camera.position.z = 30; // Default camera distance
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
-        // Futuristic Object: Wireframe Torus Knot
+        // Core Object
         const geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
         const material = new THREE.MeshBasicMaterial({ 
             color: 0x00f3ff, 
@@ -197,15 +241,13 @@
         const torusKnot = new THREE.Mesh(geometry, material);
         scene.add(torusKnot);
 
-        // Particle System (Stars/Data points)
+        // Particles
         const particlesGeometry = new THREE.BufferGeometry();
         const particlesCount = 1500;
         const posArray = new Float32Array(particlesCount * 3);
-
         for(let i = 0; i < particlesCount * 3; i++) {
             posArray[i] = (Math.random() - 0.5) * 100;
         }
-
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         const particlesMaterial = new THREE.PointsMaterial({
             size: 0.1,
@@ -217,13 +259,12 @@
         const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
         scene.add(particlesMesh);
 
-        // Mouse Interaction Logic
-        let mouseX = 0;
-        let mouseY = 0;
-        let targetX = 0;
-        let targetY = 0;
+        // State variables
+        let mouseX = 0, mouseY = 0;
+        let targetX = 0, targetY = 0;
         const windowHalfX = window.innerWidth / 2;
         const windowHalfY = window.innerHeight / 2;
+        let isSystemEntered = false; // Triggered when user clicks "Enter System"
 
         document.addEventListener('mousemove', (event) => {
             mouseX = (event.clientX - windowHalfX);
@@ -232,25 +273,32 @@
 
         // Animation Loop
         const clock = new THREE.Clock();
-
         function animate() {
             requestAnimationFrame(animate);
             const elapsedTime = clock.getElapsedTime();
 
-            // Rotate core object
-            torusKnot.rotation.y += 0.005;
-            torusKnot.rotation.x += 0.002;
+            if (!isSystemEntered) {
+                // Standard idle animation
+                torusKnot.rotation.y += 0.005;
+                torusKnot.rotation.x += 0.002;
+                particlesMesh.rotation.y = -0.05 * elapsedTime;
+            } else {
+                // "Hyperdrive" animation state after entering system
+                torusKnot.rotation.y += 0.03; 
+                torusKnot.rotation.x += 0.02;
+                particlesMesh.rotation.y -= 0.01;
+                
+                // Zoom camera in smoothly
+                camera.position.z += (5 - camera.position.z) * 0.02;
+                // Shift particle color to green
+                particlesMaterial.color.lerp(new THREE.Color(0x0aff5d), 0.01);
+            }
 
-            // Animate particles slowly
-            particlesMesh.rotation.y = -0.05 * elapsedTime;
-
-            // Parallax effect based on mouse
+            // Parallax effect
             targetX = mouseX * 0.001;
             targetY = mouseY * 0.001;
-            
             particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
             particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
-            
             torusKnot.rotation.y += 0.05 * (targetX - torusKnot.rotation.y);
             torusKnot.rotation.x += 0.05 * (targetY - torusKnot.rotation.x);
 
@@ -258,7 +306,6 @@
         }
         animate();
 
-        // Responsive Resizing
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -266,43 +313,77 @@
         });
 
         /* =========================================
-           2. BACKEND INTEGRATION (APPS SCRIPT)
+           2. BACKEND INTEGRATION & UI LOGIC
            ========================================= */
         
-        // REPLACE THIS URL with your deployed Google Apps Script Web App URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLpAZDHbBpgzjOdPSoLmc6Qbd1VsY_mgzsBLywPf-pORUqdaYQuslbOnlGTGpcbecY/exec';
+        // REPLACE THIS with your new Web App URL
+        const APPS_SCRIPT_URL = 'YOUR_WEB_APP_URL_HERE';
 
         const form = document.getElementById('transmission-form');
         const statusMsg = document.getElementById('status-message');
+        const submitBtn = document.getElementById('submit-btn');
+        const initialInterface = document.getElementById('initial-interface');
+        const successInterface = document.getElementById('success-interface');
+        const btnProceed = document.getElementById('btn-proceed');
+        const mainPanel = document.getElementById('main-panel');
 
+        // Form Submit
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             
             statusMsg.style.color = 'var(--neon-blue)';
-            statusMsg.innerText = 'Establishing connection...';
+            statusMsg.innerText = 'Transmitting data...';
+            submitBtn.disabled = true;
 
             if (APPS_SCRIPT_URL === 'YOUR_WEB_APP_URL_HERE') {
-                statusMsg.style.color = 'orange';
-                statusMsg.innerText = 'Simulation Mode: Email captured! (Connect Apps Script to save for real)';
+                // Simulation mode if URL not replaced
+                setTimeout(() => triggerSuccessState(), 1000);
                 return;
             }
 
             try {
+                // Note: Content-Type is 'text/plain' to bypass CORS preflight in browser
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Standard for simple Apps Script forms to bypass CORS issues
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ email: email, timestamp: new Date().toISOString() })
                 });
 
-                statusMsg.style.color = 'var(--neon-purple)';
-                statusMsg.innerText = 'Neural link established. Data received.';
-                form.reset();
+                const result = await response.json();
+                
+                if(result.status === "success") {
+                    triggerSuccessState();
+                } else {
+                    throw new Error("Server rejected data");
+                }
             } catch (error) {
                 statusMsg.style.color = 'red';
-                statusMsg.innerText = 'Connection failed. Try again.';
+                statusMsg.innerText = 'Connection lost. Try again.';
+                submitBtn.disabled = false;
             }
+        });
+
+        // Transition UI to Success State
+        function triggerSuccessState() {
+            initialInterface.style.display = 'none';
+            successInterface.style.display = 'block';
+        }
+
+        // Proceed Button Click Logic
+        btnProceed.addEventListener('click', () => {
+            // Hide the UI panel entirely
+            mainPanel.classList.add('fade-out');
+            
+            // Trigger 3D Hyperdrive state
+            isSystemEntered = true;
+
+            // Optional: Redirect the user after the animation plays for 3 seconds
+            /*
+            setTimeout(() => {
+                window.location.href = "https://your-next-page.com";
+            }, 3000);
+            */
         });
     </script>
 </body>
