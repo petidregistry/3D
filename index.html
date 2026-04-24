@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic 3D Nexus</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --glass-bg: rgba(10, 10, 20, 0.6);
+            --glass-border: rgba(0, 243, 255, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        body {
+            overflow-x: hidden;
+            background-color: #050505;
+            color: #fff;
+        }
+
+        /* 3D Canvas Background */
+        #webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        /* Glassmorphism UI Overlay */
+        .ui-layer {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            pointer-events: none; /* Let clicks pass through to 3D where empty */
+        }
+
+        .glass-panel {
+            pointer-events: auto; /* Re-enable clicks for the panel */
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-panel:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 60px rgba(188, 19, 254, 0.2);
+            border-color: rgba(188, 19, 254, 0.4);
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            font-size: 1.2rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            margin-bottom: 2rem;
+            color: #ccc;
+        }
+
+        /* Form Styling */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--neon-blue);
+            font-size: 1.1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 15px rgba(188, 19, 254, 0.3);
+        }
+
+        button {
+            padding: 1rem 2rem;
+            background: transparent;
+            color: var(--neon-blue);
+            border: 1px solid var(--neon-blue);
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-blue);
+        }
+
+        #status-message {
+            margin-top: 1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .glass-panel { padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+
+    <div class="ui-layer">
+        <div class="glass-panel">
+            <h1>Nexus Hub</h1>
+            <p>Interact with the background. Initiate neural link below.</p>
+            
+            <form id="transmission-form">
+                <input type="email" id="email" placeholder="ENTER COMM-LINK (EMAIL)" required>
+                <button type="submit">Initialize Sequence</button>
+                <div id="status-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        /* =========================================
+           1. 3D SCENE SETUP (THREE.JS)
+           ========================================= */
+        const container = document.getElementById('webgl-container');
+        
+        // Scene, Camera, Renderer
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 30;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Futuristic Object: Wireframe Torus Knot
+        const geometry = new THREE.TorusKnotGeometry(10, 3, 100, 16);
+        const material = new THREE.MeshBasicMaterial({ 
+            color: 0x00f3ff, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const torusKnot = new THREE.Mesh(geometry, material);
+        scene.add(torusKnot);
+
+        // Particle System (Stars/Data points)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1500;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.1,
+            color: 0xbc13fe,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // Mouse Interaction Logic
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        // Animation Loop
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            // Rotate core object
+            torusKnot.rotation.y += 0.005;
+            torusKnot.rotation.x += 0.002;
+
+            // Animate particles slowly
+            particlesMesh.rotation.y = -0.05 * elapsedTime;
+
+            // Parallax effect based on mouse
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+            
+            particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
+            
+            torusKnot.rotation.y += 0.05 * (targetX - torusKnot.rotation.y);
+            torusKnot.rotation.x += 0.05 * (targetY - torusKnot.rotation.x);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Responsive Resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        /* =========================================
+           2. BACKEND INTEGRATION (APPS SCRIPT)
+           ========================================= */
+        
+        // REPLACE THIS URL with your deployed Google Apps Script Web App URL
+        const APPS_SCRIPT_URL = 'YOUR_WEB_APP_URL_HERE';
+
+        const form = document.getElementById('transmission-form');
+        const statusMsg = document.getElementById('status-message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            
+            statusMsg.style.color = 'var(--neon-blue)';
+            statusMsg.innerText = 'Establishing connection...';
+
+            if (APPS_SCRIPT_URL === 'YOUR_WEB_APP_URL_HERE') {
+                statusMsg.style.color = 'orange';
+                statusMsg.innerText = 'Simulation Mode: Email captured! (Connect Apps Script to save for real)';
+                return;
+            }
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Standard for simple Apps Script forms to bypass CORS issues
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, timestamp: new Date().toISOString() })
+                });
+
+                statusMsg.style.color = 'var(--neon-purple)';
+                statusMsg.innerText = 'Neural link established. Data received.';
+                form.reset();
+            } catch (error) {
+                statusMsg.style.color = 'red';
+                statusMsg.innerText = 'Connection failed. Try again.';
+            }
+        });
+    </script>
+</body>
+</html>
